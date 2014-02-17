@@ -64,10 +64,11 @@
      (funcall fn (map 'list #'(lambda (text)
 				(sax:characters handler (princ-to-string text))) text)))))
 
-(defmethod call-with-tag(fn (tag (eql :unescaped)) &rest text)
-    (map nil (lambda (text)
-	       (unescaped *handler* text)) text)
-    (funcall fn))
+(defmethod call-with-tag (fn (tag (eql :unescaped)) &rest text)
+  (call-with-current-handler 
+   (lambda (handler) 
+     (funcall fn (map 'list #'(lambda (text)
+				(sax:unescaped handler (princ-to-string text))) text)))))
 
 (defmethod call-with-tag (fn (tag string) &rest tag-attributes)
   (call-with-current-handler 
@@ -87,21 +88,21 @@
 	    (namespace-uri (cdr (assoc prefix *prefix-maps* 
 				       :test #'string=))))
      (sax:start-element 
-      handler namespace-uri local-name (runes:rod tag)
+      handler namespace-uri (or local-name tag) (runes:rod tag)
       (loop :for (name value) 
 	 :on tag-attributes :by #'cddr
 	 :nconc 
-	 (progn ;(break "~A" name)
+	 (progn ;(break "~A" name value)
 	 (unless (ignore-errors 
 		   (string= "xmlns:" (string name) 
 			    :end2 6))
-	   (list (sax:make-attribute 
+	   (list (sax:make-attribute  
 		  :qname (etypecase name
 			   (string name)
 			   (symbol (symbol-name name)))
 		  :value (princ-to-string value)))))))
      (funcall fn tag)
-     (sax:end-element handler nil nil (runes:rod tag))))))
+     (sax:end-element handler namespace-uri (or local-name tag) (runes:rod tag))))))
 
 (defmethod call-with-tag (fn (tag symbol) &rest tag-attributes)
   (apply #'call-with-tag fn (string tag) tag-attributes))
